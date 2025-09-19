@@ -365,6 +365,11 @@
             </div>
             <button class="reset-btn" onclick="resetGrid()">Reset Grid</button>
             <div id="accuracyDisplay" class="accuracy" style="display:none"></div>
+            <div style="margin-top:10px">
+                <label style="user-select:none; cursor:pointer">
+                    <input type="checkbox" id="soundToggle" checked style="margin-right:6px"> Sound effects
+                </label>
+            </div>
         </div>
 
         <!-- Results Overlay -->
@@ -543,18 +548,33 @@
 
         // Audio (Web Audio API). Unlocked on first user interaction.
         let audioCtx;
+        let audioEngine;
         function ensureAudio() {
             if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const AC = window.AudioContext || window.webkitAudioContext;
+                try {
+                    audioCtx = new AC({ latencyHint: 'interactive' });
+                } catch (e) {
+                    audioCtx = new AC();
+                }
             }
             if (audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume();
+            }
+            if (!audioEngine) {
+                initAudioNodes();
             }
         }
         // Unlock on first interaction in case drops aren't treated as gestures
         document.addEventListener('pointerdown', ensureAudio, { once: true });
 
+        function isSoundEnabled() {
+            const t = document.getElementById('soundToggle');
+            return !t || t.checked;
+        }
+
         function playTone(frequency = 440, durationMs = 150, type = 'sine', volume = 0.12, startAt = 0) {
+            if (!isSoundEnabled()) return;
             ensureAudio();
             if (!audioCtx) return;
             const ctx = audioCtx;
@@ -571,13 +591,123 @@
         }
 
         function playErrorTone() {
-            // Two quick descending beeps
+            if (!isSoundEnabled()) return;
+            if (audioEngine && audioCtx) {
+                const now = audioCtx.currentTime;
+                const osc = audioEngine.error.osc;
+                const gain = audioEngine.error.gain;
+                try { gain.gain.cancelScheduledValues(now); } catch (_) {}
+                gain.gain.setValueAtTime(0.0001, now);
+                osc.frequency.setValueAtTime(500, now);
+                gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+                // second beep
+                gain.gain.setValueAtTime(0.0001, now + 0.16);
+                osc.frequency.setValueAtTime(380, now + 0.16);
+                gain.gain.exponentialRampToValueAtTime(0.18, now + 0.17);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.31);
+                return;
+            }
+            // Fallback
             playTone(500, 120, 'square', 0.12, 0);
             playTone(380, 120, 'square', 0.12, 0.12);
         }
 
         function playSuccessTone() {
-            playTone(740, 120, 'triangle', 0.08, 0);
+            if (!isSoundEnabled()) return;
+            if (audioEngine && audioCtx) {
+                const now = audioCtx.currentTime;
+                audioEngine.successPartials.forEach(({ osc, gain, level, baseFreq }) => {
+                    osc.frequency.setValueAtTime(baseFreq, now);
+                    try { gain.gain.cancelScheduledValues(now); } catch (_) {}
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.exponentialRampToValueAtTime(level, now + 0.006);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+                });
+                return;
+            }
+            playBellDing();
+        }
+
+        // Bell-like ding: richer partials + subtle pitch-up and short reverb-like tail
+        function playBellDing() {
+            ensureAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const master = audioCtx.createGain();
+            master.gain.setValueAtTime(0.0001, now);
+            master.gain.exponentialRampToValueAtTime(0.8, now + 0.004);
+            master.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+
+            // Gentle high-cut for warmth
+            const lp = audioCtx.createBiquadFilter();
+            lp.type = 'lowpass';
+            lp.frequency.setValueAtTime(4500, now);
+            master.connect(lp);
+            lp.connect(audioCtx.destination);
+
+            const partials = [
+                { f: 880.0,  level: 0.95 },  // A5
+                { f: 1320.0, level: 0.55 },  // ~E6
+                { f: 1760.0, level: 0.35 },  // A6
+                { f: 2340.0, level: 0.18 }   // add shimmer
+            ];
+            partials.forEach(({ f, level }) => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = 'sine';
+                // very small upward glide for satisfying sparkle
+                osc.frequency.setValueAtTime(f, now);
+                osc.frequency.exponentialRampToValueAtTime(f * 1.015, now + 0.08);
+                g.gain.setValueAtTime(0.0001, now);
+                g.gain.exponentialRampToValueAtTime(level, now + 0.004);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+                osc.connect(g);
+                g.connect(master);
+                osc.start(now);
+                osc.stop(now + 0.9);
+            });
+        }
+
+        // Pre-create oscillators and gains for near-zero start latency
+        function initAudioNodes() {
+            if (!audioCtx || typeof audioEngine !== 'undefined' && audioEngine) return;
+            const master = audioCtx.createGain();
+            master.gain.value = 0.9;
+            master.connect(audioCtx.destination);
+
+            const successDefs = [
+                { f: 880.0, level: 0.75 },
+                { f: 1318.5, level: 0.45 },
+                { f: 1760.0, level: 0.32 },
+                { f: 2340.0, level: 0.18 }
+            ];
+            const successPartials = successDefs.map(def => {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = def.f;
+                const g = audioCtx.createGain();
+                g.gain.value = 0.0;
+                osc.connect(g);
+                g.connect(master);
+                osc.start();
+                return { osc, gain: g, level: def.level, baseFreq: def.f };
+            });
+
+            const errOsc = audioCtx.createOscillator();
+            errOsc.type = 'square';
+            errOsc.frequency.value = 500;
+            const errGain = audioCtx.createGain();
+            errGain.gain.value = 0.0;
+            errOsc.connect(errGain);
+            errGain.connect(master);
+            errOsc.start();
+
+            audioEngine = {
+                master,
+                successPartials,
+                error: { osc: errOsc, gain: errGain }
+            };
         }
 
         function handleDragOver(e) {
@@ -621,8 +751,17 @@
                 ? draggedElement.parentElement
                 : null;
 
+            // Play feedback sound immediately based on correctness (no DOM delay)
+            ensureAudio();
+            const isMismatch = expected && expected.toUpperCase() !== letterElement.textContent.toUpperCase();
+            if (isMismatch) {
+                playErrorTone();
+            } else {
+                playSuccessTone();
+            }
+
             // Wrong placement: show expected letter as a red hint, return dragged letter to tray
-            if (expected && expected.toUpperCase() !== letterElement.textContent.toUpperCase()) {
+            if (isMismatch) {
                 e.target.classList.add('incorrect');
                 // show hint letter in the slot
                 e.target.innerHTML = '';
@@ -647,8 +786,6 @@
 
                 // Move the expected letter from the available pool to the set-aside tray
                 setAsideExpectedLetter(expected);
-
-                playErrorTone();
             } else {
                 // Correct placement: place letter in slot
                 e.target.classList.remove('incorrect');
@@ -663,7 +800,6 @@
                     originSlot.classList.remove('incorrect');
                     originSlot.innerHTML = '';
                 }
-                playSuccessTone();
             }
 
             updateAccuracy();
@@ -855,6 +991,13 @@
             generateLetters();
             generateGrid();
             placedCorrectCount = 0;
+            // Restore sound toggle from localStorage
+            const toggle = document.getElementById('soundToggle');
+            const saved = localStorage.getItem('soundEnabled');
+            if (toggle && saved !== null) toggle.checked = saved === 'true';
+            if (toggle) toggle.addEventListener('change', () => {
+                localStorage.setItem('soundEnabled', String(toggle.checked));
+            });
         });
     </script>
 </body>
