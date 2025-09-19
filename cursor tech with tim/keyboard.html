@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Letter Tray</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .letter-tray {
+            background-color: #fff;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .tray-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .letters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .letter {
+            width: 40px;
+            height: 40px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .letter:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+
+        .letter:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        .letter.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .keyboard-grid {
+            background-color: #fff;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .grid-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .keyboard-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .keyboard-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .keyboard-row.row-1 {
+            margin-left: 0px;
+        }
+
+        .keyboard-row.row-2 {
+            margin-left: 20px;
+        }
+
+        .keyboard-row.row-3 {
+            margin-left: 40px;
+        }
+
+        .keyboard-row.row-4 {
+            margin-left: 60px;
+        }
+
+        .keyboard-row.row-5 {
+            margin-left: 80px;
+        }
+
+        .keyboard-row.row-6 {
+            margin-left: 100px;
+        }
+
+        .spacebar-row {
+            margin-left: 200px;
+        }
+
+        .spacebar {
+            width: 200px;
+        }
+
+        /* Fixed non-letter keys (outline only) */
+        .key {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fafafa;
+            color: #666;
+            user-select: none;
+        }
+
+        /* We keep other keys visually blank per request */
+        .key.blank {
+            color: transparent;
+        }
+
+        /* Width helpers to approximate Mac key widths */
+        .w-1_25 { width: 50px; }
+        .w-1_5 { width: 60px; }
+        .w-1_75 { width: 70px; }
+        .w-2 { width: 88px; }
+        .w-2_25 { width: 100px; }
+        .w-2_5 { width: 112px; }
+        .w-2_75 { width: 124px; }
+        .space { width: 240px; }
+
+        .grid-slot {
+            width: 40px;
+            height: 40px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9f9f9;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .grid-slot.drag-over {
+            border-color: #4CAF50;
+            background-color: #e8f5e8;
+            transform: scale(1.05);
+        }
+
+        .grid-slot.occupied {
+            border-style: solid;
+            border-color: #4CAF50;
+            background-color: #e8f5e8;
+        }
+
+        .grid-slot .letter {
+            background-color: #4CAF50;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .grid-slot.incorrect {
+            border-color: #e53935;
+            background-color: #fdecea;
+        }
+
+        .grid-slot.incorrect .letter {
+            background-color: #e53935;
+        }
+
+        .instructions {
+            background-color: #e3f2fd;
+            border: 1px solid #2196F3;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #1976D2;
+        }
+
+        .instructions h3 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+
+        .reset-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+            transition: background-color 0.2s ease;
+        }
+
+        .reset-btn:hover {
+            background-color: #d32f2f;
+        }
+
+        .accuracy {
+            margin-top: 12px;
+            font-weight: bold;
+            color: #2e7d32; /* green */
+        }
+
+        .hint-letter {
+            font-weight: bold;
+            color: #e53935; /* red */
+            opacity: 0.9;
+            user-select: none;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Keyboard Letter Tray</h1>
+        
+        <div class="letter-tray">
+            <div class="tray-title">Letter Tray - Drag letters to the keyboard grid below</div>
+            <div class="letters" id="letterTray">
+                <!-- Letters will be generated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="keyboard-grid">
+            <div class="grid-title">Mac-Style Keyboard Grid - Drop letters here</div>
+            <div class="keyboard-container" id="keyboardGrid">
+                <!-- Keyboard rows will be generated by JavaScript -->
+            </div>
+            <button class="reset-btn" onclick="resetGrid()">Reset Grid</button>
+            <div id="accuracyDisplay" class="accuracy" style="display:none"></div>
+        </div>
+
+        <div class="instructions">
+            <h3>How to use:</h3>
+            <ul>
+                <li>Click and drag any letter from the tray above</li>
+                <li>Drop it into any empty LETTER key position (other keys are blanks)</li>
+                <li>If you place a letter in the wrong spot, the key turns red and an error sound plays</li>
+                <li>You can rearrange letters by dragging them to different letter slots</li>
+                <li>The keyboard outline shows real Mac keys; only letters accept drops</li>
+                <li>Use the Reset button to clear all letters from the grid</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Generate letters A-Z
+        function generateLetters() {
+            const letterTray = document.getElementById('letterTray');
+            for (let i = 0; i < 26; i++) {
+                const letter = String.fromCharCode(65 + i); // A-Z
+                const letterElement = document.createElement('div');
+                letterElement.className = 'letter';
+                letterElement.textContent = letter;
+                letterElement.draggable = true;
+                letterElement.dataset.letter = letter;
+                
+                // Add drag event listeners
+                letterElement.addEventListener('dragstart', handleDragStart);
+                letterElement.addEventListener('dragend', handleDragEnd);
+                
+                letterTray.appendChild(letterElement);
+            }
+        }
+
+        // Generate Mac-style keyboard outline with only letter keys droppable
+        function generateGrid() {
+            const keyboardGrid = document.getElementById('keyboardGrid');
+            let slotIndex = 0;
+            window.totalLetterSlots = 0;
+
+            // Layout definition: arrays per row, each item is a key descriptor
+            // type: 'fixed' (non-letter key, blank) or 'letter' (droppable slot)
+            // width: optional width helper class to approximate Mac key sizes
+            const layout = [
+                // Row 1: Number row with delete at end
+                [
+                    { type: 'fixed', width: '' }, // `
+                    { type: 'fixed', width: '' }, // 1
+                    { type: 'fixed', width: '' }, // 2
+                    { type: 'fixed', width: '' }, // 3
+                    { type: 'fixed', width: '' }, // 4
+                    { type: 'fixed', width: '' }, // 5
+                    { type: 'fixed', width: '' }, // 6
+                    { type: 'fixed', width: '' }, // 7
+                    { type: 'fixed', width: '' }, // 8
+                    { type: 'fixed', width: '' }, // 9
+                    { type: 'fixed', width: '' }, // 0
+                    { type: 'fixed', width: '' }, // -
+                    { type: 'fixed', width: '' }, // =
+                    { type: 'fixed', width: 'w-2' } // delete
+                ],
+                // Row 2: Tab + Q..P + [ ] \
+                [
+                    { type: 'fixed', width: 'w-1_5' }, // tab
+                    { type: 'letter', expected: 'Q' },
+                    { type: 'letter', expected: 'W' },
+                    { type: 'letter', expected: 'E' },
+                    { type: 'letter', expected: 'R' },
+                    { type: 'letter', expected: 'T' },
+                    { type: 'letter', expected: 'Y' },
+                    { type: 'letter', expected: 'U' },
+                    { type: 'letter', expected: 'I' },
+                    { type: 'letter', expected: 'O' },
+                    { type: 'letter', expected: 'P' },
+                    { type: 'fixed', width: '' }, // [
+                    { type: 'fixed', width: '' }, // ]
+                    { type: 'fixed', width: 'w-1_5' } // \
+                ],
+                // Row 3: Caps + A..L + ; ' + Return
+                [
+                    { type: 'fixed', width: 'w-1_75' }, // caps
+                    { type: 'letter', expected: 'A' },
+                    { type: 'letter', expected: 'S' },
+                    { type: 'letter', expected: 'D' },
+                    { type: 'letter', expected: 'F' },
+                    { type: 'letter', expected: 'G' },
+                    { type: 'letter', expected: 'H' },
+                    { type: 'letter', expected: 'J' },
+                    { type: 'letter', expected: 'K' },
+                    { type: 'letter', expected: 'L' },
+                    { type: 'fixed', width: '' }, // ;
+                    { type: 'fixed', width: '' }, // '
+                    { type: 'fixed', width: 'w-2' } // return
+                ],
+                // Row 4: Shift + Z..M + , . / + Shift
+                [
+                    { type: 'fixed', width: 'w-2_25' }, // shift
+                    { type: 'letter', expected: 'Z' },
+                    { type: 'letter', expected: 'X' },
+                    { type: 'letter', expected: 'C' },
+                    { type: 'letter', expected: 'V' },
+                    { type: 'letter', expected: 'B' },
+                    { type: 'letter', expected: 'N' },
+                    { type: 'letter', expected: 'M' },
+                    { type: 'fixed', width: '' }, // ,
+                    { type: 'fixed', width: '' }, // .
+                    { type: 'fixed', width: '' }, // /
+                    { type: 'fixed', width: 'w-2_75' } // shift
+                ],
+                // Row 5: Bottom modifiers + Space + modifiers
+                [
+                    { type: 'fixed', width: 'w-1_25' }, // fn
+                    { type: 'fixed', width: 'w-1_25' }, // control
+                    { type: 'fixed', width: 'w-1_5' }, // option
+                    { type: 'fixed', width: 'w-1_75' }, // command
+                    { type: 'fixed', width: 'space' }, // spacebar
+                    { type: 'fixed', width: 'w-1_75' }, // command
+                    { type: 'fixed', width: 'w-1_5' } // option
+                ]
+            ];
+
+            layout.forEach((row, rowIndex) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = `keyboard-row row-${rowIndex + 1}`;
+
+                row.forEach((key) => {
+                    if (key.type === 'letter') {
+                        const slot = document.createElement('div');
+                        slot.className = 'grid-slot';
+                        slot.dataset.slotIndex = slotIndex++;
+                        if (key.expected) slot.dataset.expected = key.expected;
+                        window.totalLetterSlots += 1;
+                        // droppable listeners
+                        slot.addEventListener('dragover', handleDragOver);
+                        slot.addEventListener('drop', handleDrop);
+                        slot.addEventListener('dragenter', handleDragEnter);
+                        slot.addEventListener('dragleave', handleDragLeave);
+                        rowDiv.appendChild(slot);
+                    } else {
+                        const fixed = document.createElement('div');
+                        fixed.className = 'key blank';
+                        if (key.width) fixed.classList.add(key.width);
+                        rowDiv.appendChild(fixed);
+                    }
+                });
+
+                keyboardGrid.appendChild(rowDiv);
+            });
+        }
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            ensureAudio();
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.outerHTML);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        // Audio (Web Audio API). Unlocked on first user interaction.
+        let audioCtx;
+        function ensureAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        // Unlock on first interaction in case drops aren't treated as gestures
+        document.addEventListener('pointerdown', ensureAudio, { once: true });
+
+        function playTone(frequency = 440, durationMs = 150, type = 'sine', volume = 0.12, startAt = 0) {
+            ensureAudio();
+            if (!audioCtx) return;
+            const ctx = audioCtx;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.value = frequency;
+            gain.gain.value = volume;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            const now = ctx.currentTime + startAt;
+            osc.start(now);
+            osc.stop(now + durationMs / 1000);
+        }
+
+        function playErrorTone() {
+            // Two quick descending beeps
+            playTone(500, 120, 'square', 0.12, 0);
+            playTone(380, 120, 'square', 0.12, 0.12);
+        }
+
+        function playSuccessTone() {
+            playTone(740, 120, 'triangle', 0.08, 0);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            if (!e.target.classList.contains('occupied')) {
+                e.target.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            e.target.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.target.classList.remove('drag-over');
+            
+            if (e.target.classList.contains('occupied')) {
+                return; // Don't drop on occupied slots
+            }
+            
+            // Create a new letter element for the grid slot
+            const letterElement = document.createElement('div');
+            letterElement.className = 'letter';
+            letterElement.textContent = draggedElement.textContent;
+            letterElement.draggable = true;
+            letterElement.dataset.letter = draggedElement.dataset.letter;
+            
+            // Add drag event listeners for the new element
+            letterElement.addEventListener('dragstart', handleDragStart);
+            letterElement.addEventListener('dragend', handleDragEnd);
+            
+            const expected = e.target.dataset.expected;
+            // Track origin slot (if dragged from a grid slot)
+            const originSlot = draggedElement && draggedElement.parentElement && draggedElement.parentElement.classList && draggedElement.parentElement.classList.contains('grid-slot')
+                ? draggedElement.parentElement
+                : null;
+
+            // Wrong placement: show expected letter as a red hint, return dragged letter to tray
+            if (expected && expected.toUpperCase() !== letterElement.textContent.toUpperCase()) {
+                e.target.classList.add('incorrect');
+                // show hint letter in the slot
+                e.target.innerHTML = '';
+                const hint = document.createElement('div');
+                hint.className = 'hint-letter';
+                hint.textContent = expected.toUpperCase();
+                e.target.appendChild(hint);
+                e.target.classList.add('occupied');
+
+                // Return dragged letter back to tray
+                const letterTray = document.getElementById('letterTray');
+                letterTray.appendChild(draggedElement);
+                // ensure it stays draggable
+                draggedElement.draggable = true;
+                draggedElement.classList.remove('dragging');
+                // Clear origin slot state if it came from a slot
+                if (originSlot) {
+                    originSlot.classList.remove('occupied');
+                    originSlot.classList.remove('incorrect');
+                    originSlot.innerHTML = '';
+                }
+                playErrorTone();
+            } else {
+                // Correct placement: place letter in slot
+                e.target.classList.remove('incorrect');
+                e.target.innerHTML = '';
+                e.target.appendChild(letterElement);
+                e.target.classList.add('occupied');
+                // Remove original from tray
+                draggedElement.remove();
+                // Clear origin slot state if it was a move between slots
+                if (originSlot) {
+                    originSlot.classList.remove('occupied');
+                    originSlot.classList.remove('incorrect');
+                    originSlot.innerHTML = '';
+                }
+                playSuccessTone();
+            }
+
+            updateAccuracy();
+        }
+
+        // Track and display accuracy when all letters placed
+        let placedCorrectCount = 0;
+        function updateAccuracy(resetOnly = false) {
+            const accuracyDisplay = document.getElementById('accuracyDisplay');
+            // Count correct placements: slots whose child has .letter and matches expected
+            if (!resetOnly) {
+                let correct = 0;
+                const slots = document.querySelectorAll('.grid-slot');
+                slots.forEach(slot => {
+                    const expected = slot.dataset.expected;
+                    const child = slot.firstElementChild;
+                    if (expected && child && child.classList.contains('letter')) {
+                        if (child.textContent && child.textContent.toUpperCase() === expected.toUpperCase()) {
+                            correct += 1;
+                        }
+                    }
+                });
+                placedCorrectCount = correct;
+            } else {
+                placedCorrectCount = 0;
+            }
+
+            const total = window.totalLetterSlots || 26;
+            const slotsNow = document.querySelectorAll('.grid-slot');
+            let filled = 0;
+            slotsNow.forEach(slot => {
+                const child = slot.firstElementChild;
+                if (child && child.classList.contains('letter')) filled += 1;
+            });
+
+            if (filled >= total) {
+                const pct = Math.round((placedCorrectCount / total) * 100);
+                accuracyDisplay.style.display = 'block';
+                accuracyDisplay.textContent = `Accuracy: ${pct}%`;
+            } else {
+                accuracyDisplay.style.display = 'none';
+                accuracyDisplay.textContent = '';
+            }
+        }
+
+        function resetGrid() {
+            const gridSlots = document.querySelectorAll('.grid-slot');
+            const letterTray = document.getElementById('letterTray');
+            
+            // Clear all grid slots
+            gridSlots.forEach(slot => {
+                slot.innerHTML = '';
+                slot.classList.remove('occupied');
+                slot.classList.remove('incorrect');
+            });
+            
+            // Regenerate letters in the tray
+            letterTray.innerHTML = '';
+            generateLetters();
+
+            // Reset accuracy UI
+            placedCorrectCount = 0;
+            updateAccuracy(true);
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            generateLetters();
+            generateGrid();
+            placedCorrectCount = 0;
+        });
+    </script>
+</body>
+</html>

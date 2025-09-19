@@ -1,0 +1,8 @@
+
+Create a single HTML file for me called keyboard.html that:
+- shows a tray of all 26 letters
+- shows an empty keyboard grid
+- lets me drag letters from the tray into the grid slots  
+Do not use React, npm or any build tools.  
+Write everything (HTML, CSS, JavaScript) in one file so I can just save it and open it in my browser.  
+Explain where I should paste the code and how to run it.
