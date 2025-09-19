@@ -1,4 +1,4 @@
-wa<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -270,10 +270,17 @@ wa<!DOCTYPE html>
         }
 
         .accuracy {
-            margin-top: 12px;
-            font-weight: bold;
-            color: #2e7d32; /* green */
+            margin-top: 16px;
+            font-weight: 800;
+            font-size: 42px;
+            line-height: 1.2;
+            text-align: center;
+            display: none;
         }
+
+        .accuracy.green { color: #2e7d32; }
+        .accuracy.yellow { color: #f9a825; }
+        .accuracy.red { color: #e53935; }
 
         .hint-letter {
             font-weight: bold;
@@ -281,6 +288,57 @@ wa<!DOCTYPE html>
             opacity: 0.9;
             user-select: none;
             pointer-events: none;
+        }
+
+        /* Full-screen results overlay */
+        .results-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .results-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 32px 28px;
+            width: min(720px, 92vw);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+
+        .results-percent {
+            font-size: 96px;
+            font-weight: 900;
+            margin-bottom: 12px;
+        }
+
+        .results-percent.green { color: #2e7d32; }
+        .results-percent.yellow { color: #f9a825; }
+        .results-percent.red { color: #e53935; }
+
+        .results-missed-title {
+            margin-top: 8px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #555;
+        }
+
+        .results-missed {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .results-missed .letter {
+            background-color: #e53935;
+            color: #fff;
+            cursor: default;
         }
     </style>
 </head>
@@ -307,6 +365,16 @@ wa<!DOCTYPE html>
             </div>
             <button class="reset-btn" onclick="resetGrid()">Reset Grid</button>
             <div id="accuracyDisplay" class="accuracy" style="display:none"></div>
+        </div>
+
+        <!-- Results Overlay -->
+        <div id="resultsOverlay" class="results-overlay" role="dialog" aria-modal="true" aria-labelledby="resultsPercent">
+            <div class="results-card">
+                <div id="resultsPercent" class="results-percent">0%</div>
+                <div class="results-missed-title">Missed letters</div>
+                <div id="resultsMissed" class="results-missed"></div>
+                <button class="reset-btn" onclick="resetFromResults()">Reset Game</button>
+            </div>
         </div>
 
         <div class="instructions">
@@ -646,13 +714,38 @@ wa<!DOCTYPE html>
             let filled = 0;
             slotsNow.forEach(slot => {
                 const child = slot.firstElementChild;
-                if (child && child.classList.contains('letter')) filled += 1;
+                // treat a slot as filled if it holds a letter OR an error hint
+                if (child && (child.classList.contains('letter') || child.classList.contains('hint-letter'))) {
+                    filled += 1;
+                }
             });
 
             if (filled >= total) {
                 const pct = Math.round((placedCorrectCount / total) * 100);
+                accuracyDisplay.classList.remove('green', 'yellow', 'red');
+                if (pct >= 85) {
+                    accuracyDisplay.classList.add('green');
+                } else if (pct > 65) {
+                    accuracyDisplay.classList.add('yellow');
+                } else {
+                    accuracyDisplay.classList.add('red');
+                }
                 accuracyDisplay.style.display = 'block';
-                accuracyDisplay.textContent = `Accuracy: ${pct}%`;
+                accuracyDisplay.textContent = `${pct}%`;
+
+                // Build missed letters list from incorrect slots
+                const missedLetters = [];
+                slotsNow.forEach(slot => {
+                    const expected = (slot.dataset.expected || '').trim().toUpperCase();
+                    const child = slot.firstElementChild;
+                    if (!expected) return;
+                    if (!child) return;
+                    const isCorrect = child.classList.contains('letter') && (child.textContent || '').trim().toUpperCase() === expected;
+                    if (!isCorrect) missedLetters.push(expected);
+                });
+
+                // Show full-screen results overlay
+                showResultsOverlay(pct, missedLetters);
             } else {
                 accuracyDisplay.style.display = 'none';
                 accuracyDisplay.textContent = '';
@@ -705,6 +798,56 @@ wa<!DOCTYPE html>
                     child.classList.add('misplaced');
                 }
             });
+        }
+
+        // Show full-screen results with percent and missed letters, then play jingle
+        function showResultsOverlay(percent, missedLetters) {
+            const overlay = document.getElementById('resultsOverlay');
+            const percentEl = document.getElementById('resultsPercent');
+            const missedEl = document.getElementById('resultsMissed');
+
+            if (!overlay || !percentEl || !missedEl) return;
+
+            percentEl.classList.remove('green', 'yellow', 'red');
+            if (percent >= 85) {
+                percentEl.classList.add('green');
+            } else if (percent > 65) {
+                percentEl.classList.add('yellow');
+            } else {
+                percentEl.classList.add('red');
+            }
+            percentEl.textContent = `${percent}%`;
+
+            // Render missed letters
+            missedEl.innerHTML = '';
+            if (missedLetters && missedLetters.length > 0) {
+                missedLetters.forEach(l => {
+                    const el = document.createElement('div');
+                    el.className = 'letter set-aside';
+                    el.textContent = (l || '').toUpperCase();
+                    missedEl.appendChild(el);
+                });
+            }
+
+            overlay.style.display = 'flex';
+            playVictoryJingle();
+        }
+
+        // Simple triumphant jingle using the existing WebAudio context
+        function playVictoryJingle() {
+            ensureAudio();
+            if (!audioCtx) return;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => playTone(freq, 160, 'triangle', 0.12, i * 0.16));
+        }
+
+        // Reset button inside results overlay
+        function resetFromResults() {
+            const overlay = document.getElementById('resultsOverlay');
+            if (overlay) overlay.style.display = 'none';
+            resetGrid();
+            // Scroll back to top to start again
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Initialize the page
