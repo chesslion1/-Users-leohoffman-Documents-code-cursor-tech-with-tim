@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Keyboard Letter Tray</title>
     <style>
+        /* Styled toggle switch for sound effects */
+        .controls { margin-top: 12px; display: flex; align-items: center; }
+        .toggle { display: inline-flex; align-items: center; gap: 10px; user-select: none; cursor: pointer; }
+        .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .toggle-text { color: #555; font-weight: 600; }
+        .toggle-track { width: 46px; height: 26px; background: #cfd8dc; border-radius: 999px; position: relative; transition: background-color 0.2s ease; box-shadow: inset 0 1px 2px rgba(0,0,0,0.15); }
+        .toggle-thumb { width: 22px; height: 22px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: transform 0.2s ease; }
+        .toggle input:checked + .toggle-track { background: linear-gradient(90deg, #4CAF50, #2ebf91); }
+        .toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(20px); }
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -370,9 +379,11 @@
             </div>
             <button class="reset-btn" onclick="resetGrid()">Reset Grid</button>
             <div id="accuracyDisplay" class="accuracy" style="display:none"></div>
-            <div style="margin-top:10px">
-                <label style="user-select:none; cursor:pointer">
-                    <input type="checkbox" id="soundToggle" checked style="margin-right:6px"> Sound effects
+            <div class="controls">
+                <label class="toggle" for="soundToggle">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    <span class="toggle-text">Sound effects</span>
                 </label>
             </div>
         </div>
@@ -717,26 +728,35 @@
         }
 
         function handleDragOver(e) {
+            const slot = e.currentTarget || e.target;
+            // If already occupied, signal no drop and skip enabling drop
+            if (slot && slot.classList && slot.classList.contains('occupied')) {
+                e.dataTransfer.dropEffect = 'none';
+                return;
+            }
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
         }
 
         function handleDragEnter(e) {
+            const slot = e.currentTarget || e.target;
             e.preventDefault();
-            if (!e.target.classList.contains('occupied')) {
-                e.target.classList.add('drag-over');
+            if (slot && slot.classList && !slot.classList.contains('occupied')) {
+                slot.classList.add('drag-over');
             }
         }
 
         function handleDragLeave(e) {
-            e.target.classList.remove('drag-over');
+            const slot = e.currentTarget || e.target;
+            if (slot && slot.classList) slot.classList.remove('drag-over');
         }
 
         function handleDrop(e) {
+            const slot = e.currentTarget || e.target;
             e.preventDefault();
-            e.target.classList.remove('drag-over');
+            if (slot && slot.classList) slot.classList.remove('drag-over');
             
-            if (e.target.classList.contains('occupied')) {
+            if (slot && slot.classList && slot.classList.contains('occupied')) {
                 return; // Don't drop on occupied slots
             }
             
@@ -751,7 +771,7 @@
             letterElement.addEventListener('dragstart', handleDragStart);
             letterElement.addEventListener('dragend', handleDragEnd);
             
-            const expected = e.target.dataset.expected;
+            const expected = slot && slot.dataset ? slot.dataset.expected : undefined;
             // Track origin slot (if dragged from a grid slot)
             const originSlot = draggedElement && draggedElement.parentElement && draggedElement.parentElement.classList && draggedElement.parentElement.classList.contains('grid-slot')
                 ? draggedElement.parentElement
@@ -768,14 +788,14 @@
 
             // Wrong placement: show expected letter as a red hint, return dragged letter to tray
             if (isMismatch) {
-                e.target.classList.add('incorrect');
+                if (slot && slot.classList) slot.classList.add('incorrect');
                 // show hint letter in the slot
-                e.target.innerHTML = '';
+                if (slot) slot.innerHTML = '';
                 const hint = document.createElement('div');
                 hint.className = 'hint-letter';
                 hint.textContent = expected.toUpperCase();
-                e.target.appendChild(hint);
-                e.target.classList.add('occupied');
+                if (slot) slot.appendChild(hint);
+                if (slot && slot.classList) slot.classList.add('occupied');
 
                 // Return dragged letter back to tray
                 const letterTray = document.getElementById('letterTray');
@@ -794,16 +814,16 @@
                 setAsideExpectedLetter(expected);
             } else {
                 // Correct placement: place letter in slot
-                e.target.classList.remove('incorrect');
-                e.target.innerHTML = '';
+                if (slot && slot.classList) slot.classList.remove('incorrect');
+                if (slot) slot.innerHTML = '';
                 // Lock the placed letter
                 letterElement.draggable = false;
                 letterElement.classList.add('locked');
                 // Remove drag handlers to prevent reordering
                 letterElement.removeEventListener('dragstart', handleDragStart);
                 letterElement.removeEventListener('dragend', handleDragEnd);
-                e.target.appendChild(letterElement);
-                e.target.classList.add('occupied');
+                if (slot) slot.appendChild(letterElement);
+                if (slot && slot.classList) slot.classList.add('occupied');
                 // Remove original from tray
                 draggedElement.remove();
                 // Clear origin slot state if it was a move between slots
