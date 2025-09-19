@@ -87,6 +87,11 @@
             transform: rotate(5deg);
         }
 
+        /* Locked letters (after placement) should not look draggable */
+        .letter.locked {
+            cursor: default !important;
+        }
+
         .keyboard-grid {
             background-color: #fff;
             border: 2px solid #ddd;
@@ -388,7 +393,8 @@
                 <li>Click and drag any letter from the tray above</li>
                 <li>Drop it into any empty LETTER key position (other keys are blanks)</li>
                 <li>If you place a letter in the wrong spot, the key turns red and an error sound plays</li>
-                <li>You can rearrange letters by dragging them to different letter slots</li>
+                <li>Once a letter is placed in a slot, it locks and cannot be moved</li>
+                <li>Use the Reset button if you want to start over or try again</li>
                 <li>The keyboard outline shows real Mac keys; only letters accept drops</li>
                 <li>Use the Reset button to clear all letters from the grid</li>
             </ul>
@@ -790,6 +796,12 @@
                 // Correct placement: place letter in slot
                 e.target.classList.remove('incorrect');
                 e.target.innerHTML = '';
+                // Lock the placed letter
+                letterElement.draggable = false;
+                letterElement.classList.add('locked');
+                // Remove drag handlers to prevent reordering
+                letterElement.removeEventListener('dragstart', handleDragStart);
+                letterElement.removeEventListener('dragend', handleDragEnd);
                 e.target.appendChild(letterElement);
                 e.target.classList.add('occupied');
                 // Remove original from tray
