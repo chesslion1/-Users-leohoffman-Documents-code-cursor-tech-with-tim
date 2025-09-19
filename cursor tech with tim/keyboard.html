@@ -519,23 +519,17 @@
                 ? draggedElement.parentElement
                 : null;
 
-            // Wrong placement: show expected letter as a red hint, return dragged letter to tray
+            // Wrong placement: place the incorrect letter on the board and mark red
             if (expected && expected.toUpperCase() !== letterElement.textContent.toUpperCase()) {
                 e.target.classList.add('incorrect');
-                // show hint letter in the slot
                 e.target.innerHTML = '';
-                const hint = document.createElement('div');
-                hint.className = 'hint-letter';
-                hint.textContent = expected.toUpperCase();
-                e.target.appendChild(hint);
+                e.target.appendChild(letterElement);
                 e.target.classList.add('occupied');
 
-                // Return dragged letter back to tray
-                const letterTray = document.getElementById('letterTray');
-                letterTray.appendChild(draggedElement);
-                // ensure it stays draggable
-                draggedElement.draggable = true;
-                draggedElement.classList.remove('dragging');
+                // Remove the original dragged element (from tray or another slot)
+                if (draggedElement && draggedElement.parentElement) {
+                    draggedElement.remove();
+                }
                 // Clear origin slot state if it came from a slot
                 if (originSlot) {
                     originSlot.classList.remove('occupied');
