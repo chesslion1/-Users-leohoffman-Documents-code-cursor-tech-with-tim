@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Letter Tray</title>
+    <style>
+        /* Styled toggle switch for sound effects */
+        .controls { margin-top: 12px; display: flex; align-items: center; }
+        .toggle { display: inline-flex; align-items: center; gap: 10px; user-select: none; cursor: pointer; }
+        .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .toggle-text { color: #555; font-weight: 600; }
+        .toggle-track { width: 46px; height: 26px; background: #cfd8dc; border-radius: 999px; position: relative; transition: background-color 0.2s ease; box-shadow: inset 0 1px 2px rgba(0,0,0,0.15); }
+        .toggle-thumb { width: 22px; height: 22px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: transform 0.2s ease; }
+        .toggle input:checked + .toggle-track { background: linear-gradient(90deg, #4CAF50, #2ebf91); }
+        .toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(20px); }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .letter-tray {
+            background-color: #fff;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Red tray to hold letters set aside after wrong drops */
+        .set-aside-tray {
+            background-color: #fff;
+            border: 2px solid #e57373;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .tray-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .letters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .letter {
+            width: 40px;
+            height: 40px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .letter:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+
+        .letter:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        .letter.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        /* Locked letters (after placement) should not look draggable */
+        .letter.locked {
+            cursor: default !important;
+        }
+
+        .keyboard-grid {
+            background-color: #fff;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .grid-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .keyboard-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .keyboard-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .keyboard-row.row-1 {
+            margin-left: 0px;
+        }
+
+        .keyboard-row.row-2 {
+            margin-left: 20px;
+        }
+
+        .keyboard-row.row-3 {
+            margin-left: 40px;
+        }
+
+        .keyboard-row.row-4 {
+            margin-left: 60px;
+        }
+
+        .keyboard-row.row-5 {
+            margin-left: 80px;
+        }
+
+        .keyboard-row.row-6 {
+            margin-left: 100px;
+        }
+
+        .spacebar-row {
+            margin-left: 200px;
+        }
+
+        .spacebar {
+            width: 200px;
+        }
+
+        /* Fixed non-letter keys (outline only) */
+        .key {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fafafa;
+            color: #666;
+            user-select: none;
+        }
+
+        /* We keep other keys visually blank per request */
+        .key.blank {
+            color: transparent;
+        }
+
+        /* Width helpers to approximate Mac key widths */
+        .w-1_25 { width: 50px; }
+        .w-1_5 { width: 60px; }
+        .w-1_75 { width: 70px; }
+        .w-2 { width: 88px; }
+        .w-2_25 { width: 100px; }
+        .w-2_5 { width: 112px; }
+        .w-2_75 { width: 124px; }
+        .space { width: 240px; }
+
+        .grid-slot {
+            width: 40px;
+            height: 40px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9f9f9;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .grid-slot.drag-over {
+            border-color: #4CAF50;
+            background-color: #e8f5e8;
+            transform: scale(1.05);
+        }
+
+        .grid-slot.occupied {
+            border-style: solid;
+            border-color: #4CAF50;
+            background-color: #e8f5e8;
+        }
+
+        .grid-slot .letter {
+            background-color: #4CAF50;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .grid-slot.incorrect {
+            border-color: #e53935;
+            background-color: #fdecea;
+        }
+
+        .grid-slot.incorrect .letter {
+            background-color: #e53935;
+        }
+
+        /* Letters on the board but in the wrong slot */
+        .letter.misplaced {
+            background-color: #e53935 !important;
+            color: white !important;
+        }
+
+        /* Letters moved to the red set-aside tray */
+        .letter.set-aside {
+            background-color: #e53935;
+            color: #fff;
+            cursor: default;
+        }
+
+        /* Letters on the board but in the wrong slot */
+        .letter.misplaced {
+            background-color: #e53935 !important;
+            color: white !important;
+        }
+
+        .instructions {
+            background-color: #e3f2fd;
+            border: 1px solid #2196F3;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #1976D2;
+        }
+
+        .instructions h3 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+
+        .reset-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+            transition: background-color 0.2s ease;
+        }
+
+        .reset-btn:hover {
+            background-color: #d32f2f;
+        }
+
+        .accuracy {
+            margin-top: 16px;
+            font-weight: 800;
+            font-size: 42px;
+            line-height: 1.2;
+            text-align: center;
+            display: none;
+        }
+
+        .accuracy.green { color: #2e7d32; }
+        .accuracy.yellow { color: #f9a825; }
+        .accuracy.red { color: #e53935; }
+
+        .hint-letter {
+            font-weight: bold;
+            color: #e53935; /* red */
+            opacity: 0.9;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        /* Full-screen results overlay */
+        .results-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .results-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 32px 28px;
+            width: min(720px, 92vw);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+
+        .results-percent {
+            font-size: 96px;
+            font-weight: 900;
+            margin-bottom: 12px;
+        }
+
+        .results-percent.green { color: #2e7d32; }
+        .results-percent.yellow { color: #f9a825; }
+        .results-percent.red { color: #e53935; }
+
+        .results-missed-title {
+            margin-top: 8px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #555;
+        }
+
+        .results-missed {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .results-missed .letter {
+            background-color: #e53935;
+            color: #fff;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Keyboard Letter Tray</h1>
+        
+        <div class="letter-tray">
+            <div class="tray-title">Letter Tray - Drag letters to the keyboard grid below</div>
+            <div class="letters" id="letterTray">
+                <!-- Letters will be generated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="set-aside-tray">
+            <div class="tray-title">Set Aside - Correct letters for wrong drops</div>
+            <div class="letters" id="setAsidePool"></div>
+        </div>
+
+        <div class="keyboard-grid">
+            <div class="grid-title">Mac-Style Keyboard Grid - Drop letters here</div>
+            <div class="keyboard-container" id="keyboardGrid">
+                <!-- Keyboard rows will be generated by JavaScript -->
+            </div>
+            <button class="reset-btn" onclick="resetGrid()">Reset Grid</button>
+            <div id="accuracyDisplay" class="accuracy" style="display:none"></div>
+            <div class="controls">
+                <label class="toggle" for="soundToggle">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    <span class="toggle-text">Sound effects</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Results Overlay -->
+        <div id="resultsOverlay" class="results-overlay" role="dialog" aria-modal="true" aria-labelledby="resultsPercent">
+            <div class="results-card">
+                <div id="resultsPercent" class="results-percent">0%</div>
+                <div class="results-missed-title">Missed letters</div>
+                <div id="resultsMissed" class="results-missed"></div>
+                <button class="reset-btn" onclick="resetFromResults()">Reset Game</button>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>How to use:</h3>
+            <ul>
+                <li>Click and drag any letter from the tray above</li>
+                <li>Drop it into any empty LETTER key position (other keys are blanks)</li>
+                <li>If you place a letter in the wrong spot, the key turns red and an error sound plays</li>
+                <li>Once a letter is placed in a slot, it locks and cannot be moved</li>
+                <li>Use the Reset button if you want to start over or try again</li>
+                <li>The keyboard outline shows real Mac keys; only letters accept drops</li>
+                <li>Use the Reset button to clear all letters from the grid</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Generate letters A-Z
+        function generateLetters() {
+            const letterTray = document.getElementById('letterTray');
+            for (let i = 0; i < 26; i++) {
+                const letter = String.fromCharCode(65 + i); // A-Z
+                const letterElement = document.createElement('div');
+                letterElement.className = 'letter';
+                letterElement.textContent = letter;
+                letterElement.draggable = true;
+                letterElement.dataset.letter = letter;
+                
+                // Add drag event listeners
+                letterElement.addEventListener('dragstart', handleDragStart);
+                letterElement.addEventListener('dragend', handleDragEnd);
+                
+                letterTray.appendChild(letterElement);
+            }
+        }
+
+        // Generate Mac-style keyboard outline with only letter keys droppable
+        function generateGrid() {
+            const keyboardGrid = document.getElementById('keyboardGrid');
+            let slotIndex = 0;
+            window.totalLetterSlots = 0;
+
+            // Layout definition: arrays per row, each item is a key descriptor
+            // type: 'fixed' (non-letter key, blank) or 'letter' (droppable slot)
+            // width: optional width helper class to approximate Mac key sizes
+            const layout = [
+                // Row 1: Number row with delete at end
+                [
+                    { type: 'fixed', width: '' }, // `
+                    { type: 'fixed', width: '' }, // 1
+                    { type: 'fixed', width: '' }, // 2
+                    { type: 'fixed', width: '' }, // 3
+                    { type: 'fixed', width: '' }, // 4
+                    { type: 'fixed', width: '' }, // 5
+                    { type: 'fixed', width: '' }, // 6
+                    { type: 'fixed', width: '' }, // 7
+                    { type: 'fixed', width: '' }, // 8
+                    { type: 'fixed', width: '' }, // 9
+                    { type: 'fixed', width: '' }, // 0
+                    { type: 'fixed', width: '' }, // -
+                    { type: 'fixed', width: '' }, // =
+                    { type: 'fixed', width: 'w-2' } // delete
+                ],
+                // Row 2: Tab + Q..P + [ ] \
+                [
+                    { type: 'fixed', width: 'w-1_5' }, // tab
+                    { type: 'letter', expected: 'Q' },
+                    { type: 'letter', expected: 'W' },
+                    { type: 'letter', expected: 'E' },
+                    { type: 'letter', expected: 'R' },
+                    { type: 'letter', expected: 'T' },
+                    { type: 'letter', expected: 'Y' },
+                    { type: 'letter', expected: 'U' },
+                    { type: 'letter', expected: 'I' },
+                    { type: 'letter', expected: 'O' },
+                    { type: 'letter', expected: 'P' },
+                    { type: 'fixed', width: '' }, // [
+                    { type: 'fixed', width: '' }, // ]
+                    { type: 'fixed', width: 'w-1_5' } // \
+                ],
+                // Row 3: Caps + A..L + ; ' + Return
+                [
+                    { type: 'fixed', width: 'w-1_75' }, // caps
+                    { type: 'letter', expected: 'A' },
+                    { type: 'letter', expected: 'S' },
+                    { type: 'letter', expected: 'D' },
+                    { type: 'letter', expected: 'F' },
+                    { type: 'letter', expected: 'G' },
+                    { type: 'letter', expected: 'H' },
+                    { type: 'letter', expected: 'J' },
+                    { type: 'letter', expected: 'K' },
+                    { type: 'letter', expected: 'L' },
+                    { type: 'fixed', width: '' }, // ;
+                    { type: 'fixed', width: '' }, // '
+                    { type: 'fixed', width: 'w-2' } // return
+                ],
+                // Row 4: Shift + Z..M + , . / + Shift
+                [
+                    { type: 'fixed', width: 'w-2_25' }, // shift
+                    { type: 'letter', expected: 'Z' },
+                    { type: 'letter', expected: 'X' },
+                    { type: 'letter', expected: 'C' },
+                    { type: 'letter', expected: 'V' },
+                    { type: 'letter', expected: 'B' },
+                    { type: 'letter', expected: 'N' },
+                    { type: 'letter', expected: 'M' },
+                    { type: 'fixed', width: '' }, // ,
+                    { type: 'fixed', width: '' }, // .
+                    { type: 'fixed', width: '' }, // /
+                    { type: 'fixed', width: 'w-2_75' } // shift
+                ],
+                // Row 5: Bottom modifiers + Space + modifiers
+                [
+                    { type: 'fixed', width: 'w-1_25' }, // fn
+                    { type: 'fixed', width: 'w-1_25' }, // control
+                    { type: 'fixed', width: 'w-1_5' }, // option
+                    { type: 'fixed', width: 'w-1_75' }, // command
+                    { type: 'fixed', width: 'space' }, // spacebar
+                    { type: 'fixed', width: 'w-1_75' }, // command
+                    { type: 'fixed', width: 'w-1_5' } // option
+                ]
+            ];
+
+            layout.forEach((row, rowIndex) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = `keyboard-row row-${rowIndex + 1}`;
+
+                row.forEach((key) => {
+                    if (key.type === 'letter') {
+                        const slot = document.createElement('div');
+                        slot.className = 'grid-slot';
+                        slot.dataset.slotIndex = slotIndex++;
+                        if (key.expected) slot.dataset.expected = key.expected;
+                        window.totalLetterSlots += 1;
+                        // droppable listeners
+                        slot.addEventListener('dragover', handleDragOver);
+                        slot.addEventListener('drop', handleDrop);
+                        slot.addEventListener('dragenter', handleDragEnter);
+                        slot.addEventListener('dragleave', handleDragLeave);
+                        rowDiv.appendChild(slot);
+                    } else {
+                        const fixed = document.createElement('div');
+                        fixed.className = 'key blank';
+                        if (key.width) fixed.classList.add(key.width);
+                        rowDiv.appendChild(fixed);
+                    }
+                });
+
+                keyboardGrid.appendChild(rowDiv);
+            });
+        }
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            ensureAudio();
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.outerHTML);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        // Audio (Web Audio API). Unlocked on first user interaction.
+        let audioCtx;
+        let audioEngine;
+        function ensureAudio() {
+            if (!audioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                try {
+                    audioCtx = new AC({ latencyHint: 'interactive' });
+                } catch (e) {
+                    audioCtx = new AC();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            if (!audioEngine) {
+                initAudioNodes();
+            }
+        }
+        // Unlock on first interaction in case drops aren't treated as gestures
+        document.addEventListener('pointerdown', ensureAudio, { once: true });
+
+        function isSoundEnabled() {
+            const t = document.getElementById('soundToggle');
+            return !t || t.checked;
+        }
+
+        function playTone(frequency = 440, durationMs = 150, type = 'sine', volume = 0.12, startAt = 0) {
+            if (!isSoundEnabled()) return;
+            ensureAudio();
+            if (!audioCtx) return;
+            const ctx = audioCtx;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.value = frequency;
+            gain.gain.value = volume;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            const now = ctx.currentTime + startAt;
+            osc.start(now);
+            osc.stop(now + durationMs / 1000);
+        }
+
+        function playErrorTone() {
+            if (!isSoundEnabled()) return;
+            if (audioEngine && audioCtx) {
+                const now = audioCtx.currentTime;
+                const osc = audioEngine.error.osc;
+                const gain = audioEngine.error.gain;
+                try { gain.gain.cancelScheduledValues(now); } catch (_) {}
+                gain.gain.setValueAtTime(0.0001, now);
+                osc.frequency.setValueAtTime(500, now);
+                gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+                // second beep
+                gain.gain.setValueAtTime(0.0001, now + 0.16);
+                osc.frequency.setValueAtTime(380, now + 0.16);
+                gain.gain.exponentialRampToValueAtTime(0.18, now + 0.17);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.31);
+                return;
+            }
+            // Fallback
+            playTone(500, 120, 'square', 0.12, 0);
+            playTone(380, 120, 'square', 0.12, 0.12);
+        }
+
+        function playSuccessTone() {
+            if (!isSoundEnabled()) return;
+            if (audioEngine && audioCtx) {
+                const now = audioCtx.currentTime;
+                audioEngine.successPartials.forEach(({ osc, gain, level, baseFreq }) => {
+                    osc.frequency.setValueAtTime(baseFreq, now);
+                    try { gain.gain.cancelScheduledValues(now); } catch (_) {}
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.exponentialRampToValueAtTime(level, now + 0.006);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+                });
+                return;
+            }
+            playBellDing();
+        }
+
+        // Bell-like ding: richer partials + subtle pitch-up and short reverb-like tail
+        function playBellDing() {
+            ensureAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const master = audioCtx.createGain();
+            master.gain.setValueAtTime(0.0001, now);
+            master.gain.exponentialRampToValueAtTime(0.8, now + 0.004);
+            master.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+
+            // Gentle high-cut for warmth
+            const lp = audioCtx.createBiquadFilter();
+            lp.type = 'lowpass';
+            lp.frequency.setValueAtTime(4500, now);
+            master.connect(lp);
+            lp.connect(audioCtx.destination);
+
+            const partials = [
+                { f: 880.0,  level: 0.95 },  // A5
+                { f: 1320.0, level: 0.55 },  // ~E6
+                { f: 1760.0, level: 0.35 },  // A6
+                { f: 2340.0, level: 0.18 }   // add shimmer
+            ];
+            partials.forEach(({ f, level }) => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = 'sine';
+                // very small upward glide for satisfying sparkle
+                osc.frequency.setValueAtTime(f, now);
+                osc.frequency.exponentialRampToValueAtTime(f * 1.015, now + 0.08);
+                g.gain.setValueAtTime(0.0001, now);
+                g.gain.exponentialRampToValueAtTime(level, now + 0.004);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+                osc.connect(g);
+                g.connect(master);
+                osc.start(now);
+                osc.stop(now + 0.9);
+            });
+        }
+
+        // Pre-create oscillators and gains for near-zero start latency
+        function initAudioNodes() {
+            if (!audioCtx || typeof audioEngine !== 'undefined' && audioEngine) return;
+            const master = audioCtx.createGain();
+            master.gain.value = 0.9;
+            master.connect(audioCtx.destination);
+
+            const successDefs = [
+                { f: 880.0, level: 0.75 },
+                { f: 1318.5, level: 0.45 },
+                { f: 1760.0, level: 0.32 },
+                { f: 2340.0, level: 0.18 }
+            ];
+            const successPartials = successDefs.map(def => {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = def.f;
+                const g = audioCtx.createGain();
+                g.gain.value = 0.0;
+                osc.connect(g);
+                g.connect(master);
+                osc.start();
+                return { osc, gain: g, level: def.level, baseFreq: def.f };
+            });
+
+            const errOsc = audioCtx.createOscillator();
+            errOsc.type = 'square';
+            errOsc.frequency.value = 500;
+            const errGain = audioCtx.createGain();
+            errGain.gain.value = 0.0;
+            errOsc.connect(errGain);
+            errGain.connect(master);
+            errOsc.start();
+
+            audioEngine = {
+                master,
+                successPartials,
+                error: { osc: errOsc, gain: errGain }
+            };
+        }
+
+        function handleDragOver(e) {
+            const slot = e.currentTarget || e.target;
+            // If already occupied, signal no drop and skip enabling drop
+            if (slot && slot.classList && slot.classList.contains('occupied')) {
+                e.dataTransfer.dropEffect = 'none';
+                return;
+            }
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDragEnter(e) {
+            const slot = e.currentTarget || e.target;
+            e.preventDefault();
+            if (slot && slot.classList && !slot.classList.contains('occupied')) {
+                slot.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            const slot = e.currentTarget || e.target;
+            if (slot && slot.classList) slot.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            const slot = e.currentTarget || e.target;
+            e.preventDefault();
+            if (slot && slot.classList) slot.classList.remove('drag-over');
+            
+            if (slot && slot.classList && slot.classList.contains('occupied')) {
+                return; // Don't drop on occupied slots
+            }
+            
+            // Create a new letter element for the grid slot
+            const letterElement = document.createElement('div');
+            letterElement.className = 'letter';
+            letterElement.textContent = draggedElement.textContent;
+            letterElement.draggable = true;
+            letterElement.dataset.letter = draggedElement.dataset.letter;
+            
+            // Add drag event listeners for the new element
+            letterElement.addEventListener('dragstart', handleDragStart);
+            letterElement.addEventListener('dragend', handleDragEnd);
+            
+            const expected = slot && slot.dataset ? slot.dataset.expected : undefined;
+            // Track origin slot (if dragged from a grid slot)
+            const originSlot = draggedElement && draggedElement.parentElement && draggedElement.parentElement.classList && draggedElement.parentElement.classList.contains('grid-slot')
+                ? draggedElement.parentElement
+                : null;
+
+            // Play feedback sound immediately based on correctness (no DOM delay)
+            ensureAudio();
+            const isMismatch = expected && expected.toUpperCase() !== letterElement.textContent.toUpperCase();
+            if (isMismatch) {
+                playErrorTone();
+            } else {
+                playSuccessTone();
+            }
+
+            // Wrong placement: show expected letter as a red hint, return dragged letter to tray
+            if (isMismatch) {
+                if (slot && slot.classList) slot.classList.add('incorrect');
+                // show hint letter in the slot
+                if (slot) slot.innerHTML = '';
+                const hint = document.createElement('div');
+                hint.className = 'hint-letter';
+                hint.textContent = expected.toUpperCase();
+                if (slot) slot.appendChild(hint);
+                if (slot && slot.classList) slot.classList.add('occupied');
+
+                // Return dragged letter back to tray
+                const letterTray = document.getElementById('letterTray');
+                letterTray.appendChild(draggedElement);
+                // ensure it stays draggable
+                draggedElement.draggable = true;
+                draggedElement.classList.remove('dragging');
+                // Clear origin slot state if it came from a slot
+                if (originSlot) {
+                    originSlot.classList.remove('occupied');
+                    originSlot.classList.remove('incorrect');
+                    originSlot.innerHTML = '';
+                }
+
+                // Move the expected letter from the available pool to the set-aside tray
+                setAsideExpectedLetter(expected);
+            } else {
+                // Correct placement: place letter in slot
+                if (slot && slot.classList) slot.classList.remove('incorrect');
+                if (slot) slot.innerHTML = '';
+                // Lock the placed letter
+                letterElement.draggable = false;
+                letterElement.classList.add('locked');
+                // Remove drag handlers to prevent reordering
+                letterElement.removeEventListener('dragstart', handleDragStart);
+                letterElement.removeEventListener('dragend', handleDragEnd);
+                if (slot) slot.appendChild(letterElement);
+                if (slot && slot.classList) slot.classList.add('occupied');
+                // Remove original from tray
+                draggedElement.remove();
+                // Clear origin slot state if it was a move between slots
+                if (originSlot) {
+                    originSlot.classList.remove('occupied');
+                    originSlot.classList.remove('incorrect');
+                    originSlot.innerHTML = '';
+                }
+            }
+
+            updateAccuracy();
+            recomputeMisplaced();
+        }
+
+        // Find and move the expected letter tile from the main tray to the set-aside tray
+        function setAsideExpectedLetter(expected) {
+            const tray = document.getElementById('letterTray');
+            const aside = document.getElementById('setAsidePool');
+            if (!tray || !aside) return;
+
+            const target = Array.from(tray.children).find(el => {
+                return el && el.classList && el.classList.contains('letter') && (el.textContent || '').trim().toUpperCase() === (expected || '').trim().toUpperCase();
+            });
+            if (!target) return;
+
+            // Move and mark
+            target.classList.add('set-aside');
+            target.draggable = false;
+            aside.appendChild(target);
+        }
+
+        // Track and display accuracy when all letters placed
+        let placedCorrectCount = 0;
+        function updateAccuracy(resetOnly = false) {
+            const accuracyDisplay = document.getElementById('accuracyDisplay');
+            // Count correct placements: slots whose child has .letter and matches expected
+            if (!resetOnly) {
+                let correct = 0;
+                const slots = document.querySelectorAll('.grid-slot');
+                slots.forEach(slot => {
+                    const expected = slot.dataset.expected;
+                    const child = slot.firstElementChild;
+                    if (expected && child && child.classList.contains('letter')) {
+                        if (child.textContent && child.textContent.toUpperCase() === expected.toUpperCase()) {
+                            correct += 1;
+                        }
+                    }
+                });
+                placedCorrectCount = correct;
+            } else {
+                placedCorrectCount = 0;
+            }
+
+            const total = window.totalLetterSlots || 26;
+            const slotsNow = document.querySelectorAll('.grid-slot');
+            let filled = 0;
+            slotsNow.forEach(slot => {
+                const child = slot.firstElementChild;
+                // treat a slot as filled if it holds a letter OR an error hint
+                if (child && (child.classList.contains('letter') || child.classList.contains('hint-letter'))) {
+                    filled += 1;
+                }
+            });
+
+            if (filled >= total) {
+                const pct = Math.round((placedCorrectCount / total) * 100);
+                accuracyDisplay.classList.remove('green', 'yellow', 'red');
+                if (pct >= 85) {
+                    accuracyDisplay.classList.add('green');
+                } else if (pct > 65) {
+                    accuracyDisplay.classList.add('yellow');
+                } else {
+                    accuracyDisplay.classList.add('red');
+                }
+                accuracyDisplay.style.display = 'block';
+                accuracyDisplay.textContent = `${pct}%`;
+
+                // Build missed letters list from incorrect slots
+                const missedLetters = [];
+                slotsNow.forEach(slot => {
+                    const expected = (slot.dataset.expected || '').trim().toUpperCase();
+                    const child = slot.firstElementChild;
+                    if (!expected) return;
+                    if (!child) return;
+                    const isCorrect = child.classList.contains('letter') && (child.textContent || '').trim().toUpperCase() === expected;
+                    if (!isCorrect) missedLetters.push(expected);
+                });
+
+                // Show full-screen results overlay
+                showResultsOverlay(pct, missedLetters);
+            } else {
+                accuracyDisplay.style.display = 'none';
+                accuracyDisplay.textContent = '';
+            }
+        }
+
+        function resetGrid() {
+            const gridSlots = document.querySelectorAll('.grid-slot');
+            const letterTray = document.getElementById('letterTray');
+            const aside = document.getElementById('setAsidePool');
+            
+            // Clear all grid slots
+            gridSlots.forEach(slot => {
+                slot.innerHTML = '';
+                slot.classList.remove('occupied');
+                slot.classList.remove('incorrect');
+            });
+            
+            // Regenerate letters in the tray
+            letterTray.innerHTML = '';
+            if (aside) aside.innerHTML = '';
+            generateLetters();
+
+            // Reset accuracy UI
+            placedCorrectCount = 0;
+            updateAccuracy(true);
+            recomputeMisplaced();
+        }
+
+        // Mark letters that are on the board but placed in the wrong slot
+        function recomputeMisplaced() {
+            const slots = document.querySelectorAll('.grid-slot');
+            // Clear previous markers
+            slots.forEach(slot => {
+                const child = slot.firstElementChild;
+                if (child && child.classList && child.classList.contains('letter')) {
+                    child.classList.remove('misplaced');
+                }
+            });
+
+            // Apply misplaced class where needed
+            slots.forEach(slot => {
+                const expected = slot.dataset.expected;
+                const child = slot.firstElementChild;
+                if (!expected) return;
+                if (!child || !child.classList || !child.classList.contains('letter')) return;
+                const actual = (child.textContent || '').trim().toUpperCase();
+                const shouldBe = (expected || '').trim().toUpperCase();
+                if (actual && shouldBe && actual !== shouldBe) {
+                    child.classList.add('misplaced');
+                }
+            });
+        }
+
+        // Show full-screen results with percent and missed letters, then play jingle
+        function showResultsOverlay(percent, missedLetters) {
+            const overlay = document.getElementById('resultsOverlay');
+            const percentEl = document.getElementById('resultsPercent');
+            const missedEl = document.getElementById('resultsMissed');
+
+            if (!overlay || !percentEl || !missedEl) return;
+
+            percentEl.classList.remove('green', 'yellow', 'red');
+            if (percent >= 85) {
+                percentEl.classList.add('green');
+            } else if (percent > 65) {
+                percentEl.classList.add('yellow');
+            } else {
+                percentEl.classList.add('red');
+            }
+            percentEl.textContent = `${percent}%`;
+
+            // Render missed letters
+            missedEl.innerHTML = '';
+            if (missedLetters && missedLetters.length > 0) {
+                missedLetters.forEach(l => {
+                    const el = document.createElement('div');
+                    el.className = 'letter set-aside';
+                    el.textContent = (l || '').toUpperCase();
+                    missedEl.appendChild(el);
+                });
+            }
+
+            overlay.style.display = 'flex';
+            playVictoryJingle();
+        }
+
+        // Simple triumphant jingle using the existing WebAudio context
+        function playVictoryJingle() {
+            ensureAudio();
+            if (!audioCtx) return;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => playTone(freq, 160, 'triangle', 0.12, i * 0.16));
+        }
+
+        // Reset button inside results overlay
+        function resetFromResults() {
+            const overlay = document.getElementById('resultsOverlay');
+            if (overlay) overlay.style.display = 'none';
+            resetGrid();
+            // Scroll back to top to start again
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            generateLetters();
+            generateGrid();
+            placedCorrectCount = 0;
+            // Restore sound toggle from localStorage
+            const toggle = document.getElementById('soundToggle');
+            const saved = localStorage.getItem('soundEnabled');
+            if (toggle && saved !== null) toggle.checked = saved === 'true';
+            if (toggle) toggle.addEventListener('change', () => {
+                localStorage.setItem('soundEnabled', String(toggle.checked));
+            });
+        });
+    </script>
+</body>
+</html>
