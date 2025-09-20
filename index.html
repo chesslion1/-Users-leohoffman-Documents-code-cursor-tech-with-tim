@@ -354,11 +354,37 @@
             color: #fff;
             cursor: default;
         }
+
+        /* Flag styling */
+        .flag-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        .flag {
+            width: 132px;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Keyboard Letter Tray</h1>
+        <div class="flag-wrap" aria-hidden="false">
+            <svg class="flag" viewBox="0 0 22 16" role="img" aria-label="Israeli flag with red X overlay">
+                <rect width="22" height="16" fill="#ffffff"></rect>
+                <rect y="1" width="22" height="3" fill="#0038B8"></rect>
+                <rect y="12" width="22" height="3" fill="#0038B8"></rect>
+                <polygon points="11,4 7,11 15,11" fill="none" stroke="#0038B8" stroke-width="1"></polygon>
+                <polygon points="11,12 7,5 15,5" fill="none" stroke="#0038B8" stroke-width="1"></polygon>
+                <!-- Red X overlay -->
+                <line x1="2" y1="2" x2="20" y2="14" stroke="#e53935" stroke-width="2" stroke-linecap="round"></line>
+                <line x1="20" y1="2" x2="2" y2="14" stroke="#e53935" stroke-width="2" stroke-linecap="round"></line>
+            </svg>
+        </div>
         
         <div class="letter-tray">
             <div class="tray-title">Letter Tray - Drag letters to the keyboard grid below</div>
