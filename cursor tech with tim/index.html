@@ -421,11 +421,35 @@
     </div>
 
     <script>
-        // Generate letters A-Z
+        // Shuffle array function (Fisher-Yates shuffle)
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Create letter array A-Z
+        function createLetterArray() {
+            const letters = [];
+            for (let i = 0; i < 26; i++) {
+                letters.push(String.fromCharCode(65 + i));
+            }
+            return letters;
+        }
+
+        // Generate letters A-Z (now with scrambling!)
         function generateLetters() {
             const letterTray = document.getElementById('letterTray');
-            for (let i = 0; i < 26; i++) {
-                const letter = String.fromCharCode(65 + i); // A-Z
+            
+            // Create and scramble letters
+            const letters = createLetterArray();
+            const scrambledLetters = shuffleArray(letters);
+            
+            // Generate elements in scrambled order
+            scrambledLetters.forEach(letter => {
                 const letterElement = document.createElement('div');
                 letterElement.className = 'letter';
                 letterElement.textContent = letter;
@@ -437,7 +461,7 @@
                 letterElement.addEventListener('dragend', handleDragEnd);
                 
                 letterTray.appendChild(letterElement);
-            }
+            });
         }
 
         // Generate Mac-style keyboard outline with only letter keys droppable
